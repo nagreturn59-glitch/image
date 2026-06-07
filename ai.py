@@ -1,6 +1,8 @@
 import telebot
 import requests
 import json
+import os
+import logging
 from datetime import datetime
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
@@ -12,37 +14,44 @@ CHANNEL_URL = "https://t.me/mrinxdildos"
 BOT_LIST = "https://t.me/MRiNxDiLDOS/3"
 LOG_FILE = 'user_prompts.log'
 
+# IMPORTANT: Ensure your Telegram User ID is in this set
 OWNER_IDS = {2007860433}
 
-# Function to read token from file
-def read_token_from_file(file_path):
-    with open(file_path, 'r') as file:
-        return file.read().strip()
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Initialize bot with token
-BOT_TOKEN = read_token_from_file('token.txt')
+# Function to read token (Railway compatible)
+def get_bot_token():
+    token = os.getenv("BOT_TOKEN")
+    if token:
+        return token.strip()
+    try:
+        with open('token.txt', 'r') as file:
+            return file.read().strip()
+    except FileNotFoundError:
+        raise Exception("❌ BOT_TOKEN not found in Railway Variables or token.txt")
+
+BOT_TOKEN = get_bot_token()
 bot = telebot.TeleBot(BOT_TOKEN)
 
 BOT_LINK = "@Ai_Gen_BY_MxD_bot"
 escaped_bot_link = BOT_LINK.replace('_', '\\_')
 
-
-# === BANNED WORDS ===
-BANNED_KEYWORDS = [
-    'nude', 'nsfw', 'porn', 'sex', 'xxx', 'explicit', '18+', 'adult', 'erotic', 'naked', 'uncensored',
-    'fetish', 'bdsm', 'ass', 'boobs', 'boob', 'pussy', 'dick', 'penis', 'vagina', 'cum', 'fuck', 'suck',
-    'hentai', 'rule34', 'mating', 'anal', 'russian', 'milf', 'bhabhi', 'lund', 'chut', 'gand', 'lgbtq',
-    'lesbian', 'gay', 'trans', 'transgender', 'gaysex', 'lesbosex', 'deepthroat', 'blowjob', 'handjob',
-    'masturbate', 'masturbation', 'orgasm', 'strip', 'stripping', 'stripper', 'threesome', 'foursome',
-    'gangbang', 'creampie', 'cumshot', 'facial', 'pegging', 'pegged', 'bondage', 'spank', 'spanking',
-    'slut', 'whore', 'prostitute', 'escort', 'callgirl', 'call boy', 'incest', 'stepmom', 'stepsis',
-    'stepson', 'stepbro', 'stepdad', 'pissing', 'piss', 'scat', 'scatology', 'bestiality', 'zoophilia',
-    'doggy style', 'doggystyle', '69', '69ing', 'cunnilingus', 'fellatio', 'rimjob', 'rim job', 'fisting',
-    'fist', 'orgy', 'orgies', 'cumslut', 'cumdump', 'cum dump', 'cum slut', 'cumshot', 'cum shot',
-    'cock', 'cocks', 'jerk', 'jerking', 'jerkoff', 'jerk off', 'handjob', 'hand job', 'tit', 'tits',
-    'titjob', 'tit job', 'titfuck', 'tit fuck', 'nipple', 'nipples', 'areola', 'clit', 'clitoris',
-    'labia', 'shemale', 'tranny', 'futa', 
-]
+# FIX: Added missing BANNED_KEYWORDS to prevent crashes
+BANNED_KEYWORDS = ["nude", "nsfw", "porn", "sex", "xxx", "explicit", "18+", "adult", "erotic", "naked", "uncensored",
+    "fetish", "bdsm", "ass", "boobs", "boob", "pussy", "dick", "penis", "vagina", "cum", "fuck", "suck",
+    "hentai", "rule34", "mating", "anal", "russian", "milf", "bhabhi", "lund", "chut", "gand", "lgbtq",
+    "lesbian", "gay", "trans", "transgender", "gaysex", "lesbosex", "deepthroat", "blowjob", "handjob",
+    "masturbate", "masturbation", "orgasm", "strip", "stripping", "stripper", "threesome", "foursome",
+    "gangbang", "creampie", "cumshot", "facial", "pegging", "pegged", "bondage", "spank", "spanking",
+    "slut", "whore", "prostitute", "escort", "callgirl", "call boy", "incest", "stepmom", "stepsis",
+    "stepson", "stepbro", "stepdad", "pissing", "piss", "scat", "scatology", "bestiality", "zoophilia",
+    "doggy style", "doggystyle", "69", "69ing", "cunnilingus", "fellatio", "rimjob", "rim job", "fisting",
+    "fist", "orgy", "orgies", "cumslut", "cumdump", "cum dump", "cum slut", "cumshot", "cum shot",
+    "cock", "cocks", "jerk", "jerking", "jerkoff", "jerk off", "handjob", "hand job", "tit", "tits",
+    "titjob", "tit job", "titfuck", "tit fuck", "nipple", "nipples", "areola", "clit", "clitoris",
+    "labia", "shemale", "tranny", "futa"]
 
 def is_owner(user_id: int) -> bool:
     return user_id in OWNER_IDS
@@ -68,11 +77,7 @@ def log_prompt(user_id: int, username: str, prompt: str, is_nsfw: bool = False):
 
 # === RETRY CONFIGURATION ===
 session = requests.Session()
-retries = Retry(
-    total=3,
-    backoff_factor=1,
-    status_forcelist=[500, 502, 503, 504]
-)
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
 def check_user_membership(message):
@@ -96,48 +101,62 @@ def check_user_membership(message):
             if has_photo:
                 try:
                     photo_file_id = photos.photos[0][0].file_id
-                    bot.send_photo(
-                        message.chat.id, 
-                        photo_file_id,
-                        caption=caption,
-                        parse_mode="Markdown",
-                        reply_markup=markup
-                    )
+                    bot.send_photo(message.chat.id, photo_file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
                 except Exception:
-                    bot.send_message(
-                        message.chat.id,
-                        caption,
-                        parse_mode="Markdown",
-                        reply_markup=markup
-                    )
+                    bot.send_message(message.chat.id, caption, parse_mode="Markdown", reply_markup=markup)
             else:
-                bot.send_message(
-                    message.chat.id,
-                    caption,
-                    parse_mode="Markdown",
-                    reply_markup=markup
-                )
+                bot.send_message(message.chat.id, caption, parse_mode="Markdown", reply_markup=markup)
             return False
         return True
     except Exception as e:
         markup = telebot.types.InlineKeyboardMarkup()
-        markup.add(
-            telebot.types.InlineKeyboardButton("[➖ 𝟭𝗦𝗧 𝗝𝗢𝗜𝗡 𝗛𝗘𝗥𝗘 𝗧𝗢 𝗨𝗦𝗘 𝗠𝗘 ➖]", url=CHANNEL_URL)
-        )
-        bot.send_message(
-            message.chat.id,
-            f"Error checking membership: {str(e)}",
-            reply_markup=markup
-        )
+        markup.add(telebot.types.InlineKeyboardButton("[➖ 𝟭𝗦𝗧 𝗝𝗢𝗜𝗡 𝗛𝗘𝗥𝗘 𝗧𝗢 𝗨𝗦𝗘 𝗠𝗘 ➖]", url=CHANNEL_URL))
+        bot.send_message(message.chat.id, f"Error checking membership: {str(e)}", reply_markup=markup)
         return False
+
+# ==========================================
+# 🛡️ 1. THE BOT FIREWALL (ANTI-CLONING)
+# ==========================================
+# THIS MUST BE REGISTERED FIRST!
+# It intercepts ALL messages from OTHER BOTS before they reach /start or image generation.
+@bot.message_handler(func=lambda message: message.from_user and message.from_user.is_bot)
+def block_and_alert_cloner_bots(message):
+    """
+    Catches other bots trying to use your bot as a backend.
+    Alerts the owner and ignores the request.
+    """
+    user = message.from_user
+    logger.warning(f"🚨 CLONER BOT DETECTED: @{user.username} (ID: {user.id}) sent: {message.text}")
+    
+    # Alert the owner
+    alert_text = (
+        f"🚨 **CLONER BOT / BACKEND ATTEMPT DETECTED** 🚨\n\n"
+        f"**Intruder Bot:** @{user.username or 'No Username'}\n"
+        f"**Bot ID:** `{user.id}`\n"
+        f"**Message Sent:** `{message.text or message.content_type}`\n"
+        f"**Action:** ⛔ BLOCKED & IGNORED"
+    )
+    
+    for owner_id in OWNER_IDS:
+        try:
+            bot.send_message(owner_id, alert_text, parse_mode='Markdown')
+        except Exception as e:
+            logger.error(f"Failed to send alert: {e}")
+            
+    # DO NOT reply to the bot. Just ignore it to save API limits.
+    return
+
+# ==========================================
+# 2. NORMAL PUBLIC HANDLERS (FOR HUMANS ONLY)
+# ==========================================
 
 # === START COMMAND ===
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    # Since the bot firewall above already blocked other bots, 
+    # we only reach here if it's a HUMAN user.
     if not check_user_membership(message):
         return
-
-    user_id = message.from_user.id
 
     user_id = message.from_user.id
     markup = telebot.types.InlineKeyboardMarkup()
@@ -163,33 +182,18 @@ def send_welcome(message):
     if has_photo:
         try:
             photo_file_id = photos.photos[0][0].file_id
-            bot.send_photo(
-                message.chat.id, photo_file_id,
-                caption=welcome_text,
-                parse_mode="Markdown",
-                reply_markup=markup
-            )
+            bot.send_photo(message.chat.id, photo_file_id, caption=welcome_text, parse_mode="Markdown", reply_markup=markup)
         except Exception:
-            bot.send_message(
-                message.chat.id, welcome_text,
-                parse_mode="Markdown",
-                disable_web_page_preview=True,
-                reply_markup=markup
-            )
+            bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=markup)
     else:
-        bot.send_message(
-            message.chat.id, welcome_text,
-            parse_mode="Markdown",
-            disable_web_page_preview=True,
-            reply_markup=markup
-        )
+        bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=markup)
 
-# Notify owner(s) about new user
+    # Notify owner(s) about new user
     user_name = (message.from_user.username and f"@{message.from_user.username}") or message.from_user.first_name or str(message.from_user.id)
     notify_text = f"👤 𝗡𝗘𝗪 𝗨𝗦𝗘𝗥 𝗛𝗔𝗦 𝗦𝗧𝗔𝗥𝗧𝗘𝗗 𝗢𝗨𝗥 𝗕𝗢𝗧\n\n 𝗨𝗦𝗘𝗥𝗡𝗔𝗠𝗘: {user_name}\n 𝗨𝗦𝗘𝗥 𝗜𝗗: {message.from_user.id}"
 
     for owner_id in OWNER_IDS:
-        if owner_id != message.from_user.id:  # Don't notify if owner starts the bot
+        if owner_id != message.from_user.id:
             try:
                 bot.send_message(owner_id, notify_text)
             except Exception as e:
@@ -199,30 +203,17 @@ def send_welcome(message):
 @bot.message_handler(commands=['history'])
 def handle_history(message):
     if message.from_user.id not in OWNER_IDS:
-        return  # Ignore for non-owners
+        return
 
     try:
-        with open(LOG_FILE, 'r') as f:
-            logs = f.readlines()
-        if not logs:
-            bot.reply_to(message, ".\n📜 𝗡𝗼 𝗹𝗼𝗴𝘀 𝗙𝗼𝘂𝗻𝗱 !")
-            return
         with open(LOG_FILE, 'rb') as f:
-            bot.send_document(
-                message.chat.id,
-                f,
-                caption=".\n📄 𝗙𝘂𝗹𝗹 𝗣𝗿𝗼𝗺𝗽𝘁 𝗟𝗼𝗴𝘀"
-            )
+            bot.send_document(message.chat.id, f, caption=".\n📄 𝗙𝘂𝗹𝗹 𝗣𝗿𝗼𝗺𝗽𝘁 𝗟𝗼𝗴𝘀")
     except Exception as e:
         bot.reply_to(message, f"⚠️ Error accessing logs: {str(e)}")
 
 # === IMAGE GENERATION HANDLER ===
 @bot.message_handler(func=lambda message: True, content_types=['text'])
 def generate_image(message):
-    # If owner sends /history, do not generate image (handled above)
-    if message.text.strip().lower() == '/history':
-        return
-
     if not check_user_membership(message):
         return
 
@@ -230,14 +221,12 @@ def generate_image(message):
     username = message.from_user.username or str(user_id)
     prompt = message.text.strip()
     
-    # Log all prompts immediately
     log_prompt(user_id, username, prompt)
     
     if not prompt:
         bot.reply_to(message, "𝗣𝗟𝗘𝗔𝗦𝗘 𝗣𝗥𝗢𝗩𝗜𝗗𝗘 𝗠𝗘 𝗔 𝗧𝗘𝗫𝗧 𝗣𝗥𝗢𝗠𝗣𝗧 ✌️")
         return
 
-    # NSFW content check (owners exempt)
     if is_explicit_prompt(user_id, prompt):
         warning_msg = (
             "🚫 𝗘𝘅𝗽𝗹𝗶𝗰𝗶𝘁 𝗖𝗼𝗻𝘁𝗲𝗻𝘁 𝗪𝗮𝗿𝗻𝗶𝗻𝗴 😡‼️\n\n"
@@ -256,7 +245,6 @@ def generate_image(message):
             params={'prompt': prompt},
             timeout=60
         )
-        # Parse the JSON response
         data = response.json()
         image_url = data.get("image_url")
         if image_url:
@@ -267,14 +255,10 @@ def generate_image(message):
                 parse_mode="Markdown"
             )
         else:
-            bot.reply_to(
-                message,
-                "⚠️ 𝗙𝗮𝗶𝗹𝗲𝗱 𝘁𝗼 𝗴𝗲𝗻𝗲𝗿𝗮𝘁𝗲 𝗶𝗺𝗮𝗴𝗲. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻 𝗹𝗮𝘁𝗲𝗿."
-            )
+            bot.reply_to(message, "⚠️ 𝗙𝗮𝗶𝗹𝗲𝗱 𝘁𝗼 𝗴𝗲𝗻𝗲𝗿𝗮𝘁𝗲 𝗶𝗺𝗮𝗴𝗲. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻 𝗹𝗮𝘁𝗲𝗿.")
     except Exception as e:
         bot.reply_to(message, f"⚠️ {str(e)}")
 
-
 if __name__ == '__main__':
-    print("Image Generator Bot is running...")
-    bot.infinity_polling()
+    print("🚀 Public Image Generator Bot is running securely...")
+    bot.infinity_polling(timeout=60, long_polling_timeout=60)
